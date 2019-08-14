@@ -18,13 +18,19 @@ def FIK_6DOF(X,Y,Z,Roll,Pitch,Yaw):
 
     DOF=6
 
-    DH_Parameter=np.array([[0, pi/2, 10, pi/2],[60, 0, 0, 0],[0, pi/2, 0, pi/2],[0, -pi/2, 50, 0],[0, pi/2, 0, 0],[0, 0, 20, 0]])
+    DH_Parameter=np.array([[0, pi/2, 10, pi/2],
+                           [60,   0,   0,  0],
+                           [0, pi/2,   0, pi/2],
+                           [0, -pi/2, 50, 0],
+                           [0, pi/2,  0, 0],
+                           [0,    0, 20, 0]])
     Pos=np.array([[X],[Y],[Z]])
     Euler_RPY=np.array([Roll,Pitch,Yaw])
     JointAngle=InverseKinematics(Pos,Euler_RPY,DOF,DH_Parameter)
     #JointAngle*180/pi
+    print(JointAngle)
     print(JointAngle*180/pi)
-    # Info=ForwardKinematics(DOF,JointAngle,DH_Parameter)
+    Info=ForwardKinematics(DOF,JointAngle,DH_Parameter)
     # DrawRobotManipulator(DOF,Info.JointPos,Info.JointDir)
     # figure(1)
     # str_x=num2str(roundn(Info.P[0],- 2))
@@ -35,7 +41,34 @@ def FIK_6DOF(X,Y,Z,Roll,Pitch,Yaw):
     # str_Yaw=num2str(roundn(np.dot(Info.Yaw,180) / pi,- 2))
     # str=np.array(['X Y Z = ',str_x,'   ',str_y,'   ',str_z,'     ','R P Y = ',str_Roll,'   ',str_Pitch,'   ',str_Yaw])
     # title(str)
+       
+	# direct_Kinematics(JointAngle)
+	#print(direct_Kinematics(JointAngle))
+	
+
+    fig = plt.figure(figsize=(8,8))
     
+    ax = plt.subplot(211, aspect='equal')
+    ax.set_aspect('equal')
+    
+    r2d = 1/180*pi
+
+    Od = [0,0,0]
+    pos = [ [None] * 3 for i in range(4) ]
+    ax = plt.subplot(111, projection='3d')
+    
+    x = Info.JointPos[:,0]
+    y = Info.JointPos[:,1]
+    z = Info.JointPos[:,2]
+   
+    ax.plot(x,y,z,"o-",color="#00aa00", ms=4, mew=0.5,label='Arm')
+
+    ax.set_zlabel('Z')  # 座標軸
+    ax.set_ylabel('Y')
+    ax.set_xlabel('X')
+    plt.title('6DOF_arm') # 設置標題
+    plt.legend() # 顯示上面定義的圖例
+    plt.show()
     return
     
     
@@ -141,7 +174,7 @@ def InverseOrientation(DesiredCmd,DH_Parameter):
     R0_3=np.array([[c1*c23,s1,c1*s23],[s1*c23,-c1,s1*s23],[s23,0,-c23]])
     
     R3_6=np.dot(R0_3.T,DesiredCmd.R)
-    pdb.set_trace()
+    
     
     DesiredCmd.Angle[0,4]=math.atan2(DesiredCmd.Wrist*math.sqrt(1-R3_6[2,2]**2),R3_6[2,2])
     if (abs(R3_6[2,2]) > 0.9999):
@@ -150,9 +183,10 @@ def InverseOrientation(DesiredCmd,DH_Parameter):
     else:
         if (DesiredCmd.Wrist > 0):
             DesiredCmd.Angle[0,3]=math.atan2(R3_6[1,2],R3_6[0,2])
-            DesiredCmd.Angle[0,5]=math.atan2(R3_6[2,1],- R3_6[2,0])
+            DesiredCmd.Angle[0,5]=math.atan2(R3_6
+            [2,1],- R3_6[2,0])
         else:
-            DesiredCmd.Angle[0,3]=math.atan2(- R3_6[1,2],R3_6[0,2])
+            DesiredCmd.Angle[0,3]=math.atan2(- R3_6[1,2],-R3_6[0,2])
             DesiredCmd.Angle[0,5]=math.atan2(- R3_6[2,1],R3_6[2,0])
     
     return DesiredCmd
@@ -187,22 +221,22 @@ def ForwardKinematics(DOF,JointAngle,DH_Parameter):
         k = g[:,3].reshape(3,1)
         #t = Info.JointPos
         Info.JointPos = np.concatenate((Info.JointPos,k),axis = 1)
-        x = np.delete(Info.T0_6,[3],axis = 1)
-        y = np.array([x[0,:],x[1,:],x[2,:]])
+        f = np.delete(Info.T0_6,[3],axis = 1)
+        p = np.array([f[0,:],f[1,:],f[2,:]])
         # z = np.array([Info.JointDir[:,0],Info.JointDir[:,1],Info.JointDir[:,2]])
         # z = z.T
         
-        Info.JointDir = np.concatenate((Info.JointPos,y),axis = 1)#????
+        Info.JointDir = np.concatenate((Info.JointDir,p),axis = 1)
         
     
     ## Step 3
     g = np.delete(Info.T0_6,[3],axis = 0)
     k = g[:,3].reshape(3,1)
-    x = np.delete(Info.T0_6,[3],axis = 1)
-    y = np.array([x[0,:],x[1,:],x[2,:]])
+    f = np.delete(Info.T0_6,[3],axis = 1)
+    p = np.array([f[0,:],f[1,:],f[2,:]])
     Info.P = k
-    Info.R = y
-    R0_6 = y
+    Info.R = p
+    R0_6 = p
     
 
     cal_err=1*10 **-8
@@ -230,6 +264,7 @@ def ForwardKinematics(DOF,JointAngle,DH_Parameter):
     Info.Roll = normalize(Info.Roll)
     Info.Pitch = normalize(Info.Pitch)
     Info.Yaw = normalize(Info.Yaw)
+    #pdb.set_trace()
     return Info
     
 
@@ -329,7 +364,9 @@ def DrawRobotManipulator(DOF,JointPos,JointDir):
     
     axis('equal')
     return
-    
+
+
+
 if __name__ == '__main__':
     X = 10
     Y = 50
@@ -339,5 +376,8 @@ if __name__ == '__main__':
     Roll = rpy[0]
     Pitch = rpy[1]
     Yaw  = rpy[2]     
-    DesiredCmd = 0
+
     FIK_6DOF(X,Y,Z,Roll,Pitch,Yaw)
+
+	
+ 
