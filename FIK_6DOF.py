@@ -30,8 +30,8 @@ def FIK_6DOF(X,Y,Z,Roll,Pitch,Yaw):
     #JointAngle*180/pi
     print(JointAngle)
     print(JointAngle*180/pi)
-    Info=ForwardKinematics(DOF,JointAngle,DH_Parameter)
-    # DrawRobotManipulator(DOF,Info.JointPos,Info.JointDir)
+    Info = ForwardKinematics(DOF,JointAngle,DH_Parameter)
+    #DrawRobotManipulator(DOF,Info.JointPos,Info.JointDir)
     # figure(1)
     # str_x=num2str(roundn(Info.P[0],- 2))
     # str_y=num2str(roundn(Info.P[1],- 2))
@@ -44,31 +44,9 @@ def FIK_6DOF(X,Y,Z,Roll,Pitch,Yaw):
        
 	# direct_Kinematics(JointAngle)
 	#print(direct_Kinematics(JointAngle))
-	
+    #Info.JointPos = np.around(Info.JointPos,decimals=1)
+    DrawArm(DOF,Info.JointPos,Info.JointDir)
 
-    fig = plt.figure(figsize=(8,8))
-    
-    ax = plt.subplot(211, aspect='equal')
-    ax.set_aspect('equal')
-    
-    r2d = 1/180*pi
-
-    Od = [0,0,0]
-    pos = [ [None] * 3 for i in range(4) ]
-    ax = plt.subplot(111, projection='3d')
-    
-    x = Info.JointPos[:,0]
-    y = Info.JointPos[:,1]
-    z = Info.JointPos[:,2]
-   
-    ax.plot(x,y,z,"o-",color="#00aa00", ms=4, mew=0.5,label='Arm')
-
-    ax.set_zlabel('Z')  # 座標軸
-    ax.set_ylabel('Y')
-    ax.set_xlabel('X')
-    plt.title('6DOF_arm') # 設置標題
-    plt.legend() # 顯示上面定義的圖例
-    plt.show()
     return
     
     
@@ -200,7 +178,7 @@ class Information():
         self.T0_6 = 0.1
         self.Yaw = 0.1
         self.Pitch = 0.1
-        self.Roll = 0.1
+        self.Roll = 0.1 
      
 def ForwardKinematics(DOF,JointAngle,DH_Parameter):
     # varargin = ForwardKinematics.varargin
@@ -223,9 +201,6 @@ def ForwardKinematics(DOF,JointAngle,DH_Parameter):
         Info.JointPos = np.concatenate((Info.JointPos,k),axis = 1)
         f = np.delete(Info.T0_6,[3],axis = 1)
         p = np.array([f[0,:],f[1,:],f[2,:]])
-        # z = np.array([Info.JointDir[:,0],Info.JointDir[:,1],Info.JointDir[:,2]])
-        # z = z.T
-        
         Info.JointDir = np.concatenate((Info.JointDir,p),axis = 1)
         
     
@@ -236,29 +211,31 @@ def ForwardKinematics(DOF,JointAngle,DH_Parameter):
     p = np.array([f[0,:],f[1,:],f[2,:]])
     Info.P = k
     Info.R = p
-    R0_6 = p
-    
+    Info.R0_6 = p
+    # print(np.around(Info.R0_6,decimals=1))
+    # print(np.around(Info.JointPos,decimals=1))
+
 
     cal_err=1*10 **-8
-    if (abs(R0_6[2,0] - 1) < cal_err):
-        Info.Yaw = math.atan2(-R0_6[0,1], -R0_6[0,2])
+    if (abs(Info.R0_6[2,0] - 1) < cal_err):
+        Info.Yaw = math.atan2(-Info.R0_6[0,1], -Info.R0_6[0,2])
         Info.Pitch = -pi/2
         Info.Roll = 0
         print('*** Gimbal Lock at Pitch = -90 degree. ***\n')
         print('*** Yaw change to Yaw+Roll degree. ***\n')
         print('*** Roll change to zero degree. ***\n')
     else:
-        if (abs(R0_6[2,0] + 1) < cal_err):
-            Info.Yaw = math.atan2(R0_6[0,1],R0_6[0,2])
+        if (abs(Info.R0_6[2,0] + 1) < cal_err):
+            Info.Yaw = math.atan2(Info.R0_6[0,1],Info.R0_6[0,2])
             Info.Pitch = pi/2
             Info.Roll = 0
             fprintf('*** Gimbal Lock at Pitch = +90 degree. ***\n')
             fprintf('*** Yaw change to Yaw-- degree. ***\n')
             fprintf('*** Roll change to zero degree. ***\n')
         else:
-            Info.Yaw = math.atan2(R0_6[2,1],R0_6[2,2])
-            Info.Pitch = math.asin(- R0_6[2,0])
-            Info.Roll = math.atan2(R0_6[1,0],R0_6[0,0])
+            Info.Yaw = math.atan2(Info.R0_6[2,1],Info.R0_6[2,2])
+            Info.Pitch = math.asin(- Info.R0_6[2,0])
+            Info.Roll = math.atan2(Info.R0_6[1,0],Info.R0_6[0,0])
 
     
     Info.Roll = normalize(Info.Roll)
@@ -303,67 +280,92 @@ def GenerateTransformationMatrices(Theta,DH_Parameter):
     A=np.array([[C_Theta,-1*S_Theta*C_Alpha,S_Theta*S_Alpha,DH_Parameter[0]*C_Theta],[S_Theta,C_Theta*C_Alpha,- 1*C_Theta*S_Alpha,DH_Parameter[0]*S_Theta],[0,S_Alpha,C_Alpha,DH_Parameter[2]],[0,0,0,1]])
     return A
     
-    
+def DrawArm(DOF,JointPos,JointDir):
 
-def DrawRobotManipulator(DOF,JointPos,JointDir):
-    # varargin = DrawRobotManipulator.varargin
-    # nargin = DrawRobotManipulator.nargin
-
-    # figure(1)
+    Info = Information()
+    fig = plt.figure(figsize=(8,8))
     
-    # hold off
-    plt.plot(JointPos[0,:],JointPos[1,:],JointPos[2,:],'linewidth',4)
+    ax = plt.subplot(211, aspect='equal')
+    ax.set_aspect('equal')
+    
+    r2d = 1/180*pi
+
+    Od = [0,0,0]
+    pos = [ [None] * 3 for i in range(4) ]
+    ax = plt.subplot(111, projection='3d')
+    
+    x = JointPos[0,:]
+    y = JointPos[1,:]
+    z = JointPos[2,:]
+    #print(x)
+    ax.plot(x,y,z,"o-",color="#00aa00", ms=4, mew=0.5,label='Arm')
+
+    ax.set_zlabel('Z')  # 座標軸
+    ax.set_ylabel('Y')
+    ax.set_xlabel('X')
+    plt.title('6DOF_arm') # 設置標題
+    plt.legend() # 顯示上面定義的圖例
     plt.show()
-    plt.plot(JointPos[0,:],JointPos[1,:],JointPos[2,:],'ro','linewidth',7)
-    plt.grid()
-    xlabel('X axis')
-    ylabel('Y axis')
-    zlabel('Z axis')
-    X=10
-    Y=10
-    Z=20
-    pdb.set_trace()
+
+# def DrawRobotManipulator(DOF,JointPos,JointDir):
+#     # varargin = DrawRobotManipulator.varargin
+#     # nargin = DrawRobotManipulator.nargin
+
+#     # figure(1)
     
-    BaseX=np.array([X,X,- X,- X,X])
-    BaseY=np.array([Y,- Y,- Y,Y,Y])
-    BaseZ=np.array([0,0,0,0,0])
-    patch(BaseX,BaseY,BaseZ,'k')
-    #-------------------------------------
-    BaseX=np.array([X,X,X,X,X])
-    BaseY=np.array([Y,- Y,- Y,Y,Y])
-    BaseZ=np.array([0,0,- Z,- Z,0])
-    patch(BaseX,BaseY,BaseZ,'k')
-    #-------------------------------------
-    BaseX=np.array([X,- X,- X,X,X])
-    BaseY=np.array([Y,Y,Y,Y,Y])
-    BaseZ=np.array([0,0,- Z,- Z,0])
-    patch(BaseX,BaseY,BaseZ,'k')
-    #-------------------------------------
-    BaseX=np.array([- X,- X,- X,- X,- X])
-    BaseY=np.array([- Y,Y,Y,- Y,- Y])
-    BaseZ=np.array([0,0,- Z,- Z,0])
-    patch(BaseX,BaseY,BaseZ,'k')
-    #-------------------------------------
-    BaseX=np.array([X,- X,- X,X,X])
-    BaseY=np.array([- Y,- Y,- Y,- Y,- Y])
-    BaseZ=np.array([0,0,- Z,- Z,0])
-    patch(BaseX,BaseY,BaseZ,'k')
-    for i in arange(1,DOF + 1).reshape(-1):
-        if (i == DOF + 1):
-            #-----------------------------------------
-            nUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 1))
-            nBase=np.arrray([JointPos(np.arange(),i),nUnit_v])
-            plt(nBase(1,arange(1,end())),nBase(2,np.arange(1,end())),nBase(3,np.arange(1,end())),'r','linewidth',2)
-            sUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 2))
-            sBase=np.array([JointPos(np.arange(),i),sUnit_v])
-            plt(sBase(1,np.arange(1,end())),sBase(2,np.arange(1,end())),sBase(3,np.arange(1,end())),'g','linewidth',2)
-            aUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 3))
-            aBase=np.array([JointPos(np.arange(),i),aUnit_v])
-            plt(aBase(1,np.arange(1,end())),aBase(2,np.arange(1,end())),aBase(3,np.arange(1,end())),'c','linewidth',2)
-            plt.show()
+#     # hold off
+#     plt.plot(JointPos[0,:],JointPos[1,:],JointPos[2,:],'linewidth',4)
+#     plt.show()
+#     plt.plot(JointPos[0,:],JointPos[1,:],JointPos[2,:],'ro','linewidth',7)
+#     plt.grid()
+#     xlabel('X axis')
+#     ylabel('Y axis')
+#     zlabel('Z axis')
+#     X=10
+#     Y=10
+#     Z=20
+#     pdb.set_trace()
     
-    axis('equal')
-    return
+#     BaseX=np.array([X,X,- X,- X,X])
+#     BaseY=np.array([Y,- Y,- Y,Y,Y])
+#     BaseZ=np.array([0,0,0,0,0])
+#     patch(BaseX,BaseY,BaseZ,'k')
+#     #-------------------------------------
+#     BaseX=np.array([X,X,X,X,X])
+#     BaseY=np.array([Y,- Y,- Y,Y,Y])
+#     BaseZ=np.array([0,0,-Z,-Z,0])
+#     patch(BaseX,BaseY,BaseZ,'k')
+#     #-------------------------------------
+#     BaseX=np.array([X,- X,- X,X,X])
+#     BaseY=np.array([Y,Y,Y,Y,Y])
+#     BaseZ=np.array([0,0,- Z,- Z,0])
+#     patch(BaseX,BaseY,BaseZ,'k')
+#     #-------------------------------------
+#     BaseX=np.array([- X,- X,- X,- X,- X])
+#     BaseY=np.array([- Y,Y,Y,- Y,- Y])
+#     BaseZ=np.array([0,0,- Z,- Z,0])
+#     patch(BaseX,BaseY,BaseZ,'k')
+#     #-------------------------------------
+#     BaseX=np.array([X,- X,- X,X,X])
+#     BaseY=np.array([- Y,- Y,- Y,- Y,- Y])
+#     BaseZ=np.array([0,0,- Z,- Z,0])
+#     patch(BaseX,BaseY,BaseZ,'k')
+#     for i in arange(1,DOF + 1).reshape(-1):
+#         if (i == DOF + 1):
+#             #-----------------------------------------
+#             nUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 1))
+#             nBase=np.arrray([JointPos(np.arange(),i),nUnit_v])
+#             plt(nBase(1,arange(1,end())),nBase(2,np.arange(1,end())),nBase(3,np.arange(1,end())),'r','linewidth',2)
+#             sUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 2))
+#             sBase=np.array([JointPos(np.arange(),i),sUnit_v])
+#             plt(sBase(1,np.arange(1,end())),sBase(2,np.arange(1,end())),sBase(3,np.arange(1,end())),'g','linewidth',2)
+#             aUnit_v=JointPos(np.arange(),i) + np.dot(10,JointDir(np.arange(),np.dot(3,(i - 1)) + 3))
+#             aBase=np.array([JointPos(np.arange(),i),aUnit_v])
+#             plt(aBase(1,np.arange(1,end())),aBase(2,np.arange(1,end())),aBase(3,np.arange(1,end())),'c','linewidth',2)
+#             plt.show()
+    
+#     axis('equal')
+#     return
 
 
 
