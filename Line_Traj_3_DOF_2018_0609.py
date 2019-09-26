@@ -8,15 +8,52 @@ from matplotlib import pyplot as plt
 from matplotlib import animation 
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+import pdb
 
 
-    
+class current():
+ def __init__(self):
+     self.Pos = 0
+     self.Angle = 0
+
+class path():
+ def __init__(self):
+     self.Pos = 0
+     self.Angle = 0
+
+class goal():
+ def __init__(self):
+     self.Pos = 0
+     self.Angle = 0
+
+class vel():
+ def __init__(self):
+     self.Pos = 0
+     self.Start = 0
+     self.Drv = 0
+     self.Acc = 0
+     self.Tick = 0
+     self.State = 0
+     self.Now = 0
+     self.Dis = 0
+
+class information():
+ def __init__(self):
+     self.Pos = 0
+     self.JointPos = 0
+     self.JointDir = 0
+
+Vel = vel()
+
 
 def Line_Traj_3_DOF():
     # varargin = Line_Traj_3_DOF.varargin
     # nargin = Line_Traj_3_DOF.nargin
 
-   
+    Current = current() 
+    Path = path()
+    Goal = goal()
+    Vel = vel()
     ## parameter for robot manipulator hardware
     DOF=3
     Link=np.array([10,30,30])
@@ -25,92 +62,117 @@ def Line_Traj_3_DOF():
     
     
     ## parameter for trajectory planning
-    CurrentPos = np.array([-20,10,0])
-    GoalPos = np.array([-20,40,20])
+    Current.Pos = np.array([-20,10,0])
+    Goal.Pos = np.array([-20,40,20])
     
     
     #     CurrentPos = [  -20 40 5 ];        # start pos
 #     GoalPos    = [  -20 40 20 ];        # target pos
     
     
-    VelStart = 0
-    VelDrv = 50
-    VelAcc = 100
-    VelTick = 0.04
+    Vel.Start = 0
+    Vel.Drv = 50
+    Vel.Acc = 100
+    Vel.Tick = 0.04
     
-    max_mov_dis=np.dot(VelDrv,VelTick)
-    Error=np.linalg.norm(GoalPos - CurrentPos)
-    Vector=(GoalPos - CurrentPos) / Error
+    max_mov_dis=Vel.Drv*Vel.Tick
+    Error=np.linalg.norm(Goal.Pos - Current.Pos)
+    Vector=(Goal.Pos - Current.Pos) / Error
     
-    VelState = ('VEL_IDEL')
+    Vel.State = ('VEL_IDEL')
     
-    VelNow = 0
+    Vel.Now = np.zeros(1,)
     
-    VelDis = 0
+    Vel.Dis = 0
     
     #max speed's displacement   50(cm/s)*0.05(s) = 2.5 cm/sample_time
     
     ## calculate
-    CurrentAngle = IK(CurrentPos,Link)
-    Info=FK(DOF,CurrentAngle,Link)
-    GoalAngle = IK(GoalPos,Link)
-    Info=FK(DOF,GoalAngle,Link)
+    Current.Angle = IK(Current.Pos,Link)
+    Info=FK(DOF,Current.Angle,Link)
+    Goal.Angle = IK(Goal.Pos,Link)
+    Info=FK(DOF,Goal.Angle,Link)
     Path= Current
     
-    Past_RPM=zeros(1,3)
-    MotorACC=zeros(1,3)
-    Rec_P=PathPosT
-    Rec_ErrP=PathPos
-    Rec_V=0
+    Past_RPM=np.zeros(3,)
+    MotorACC=np.zeros(3,)
+    Rec_P=Path.Pos.reshape(3,1)
+    Rec_ErrP=Path.Pos
+    Rec_V=np.zeros(1,)
     Rec_DD=0
-    Rec_Ang=PathAngleT
-    Rec_RPM=zeros(3,1)
-    Rec_Acc=zeros(3,1)
+    Rec_Ang=Path.Angle.reshape(3,1)
+    Rec_RPM=np.array([[0],[0],[0]])
+    Rec_Acc=np.array([[0],[0],[0]])
+    nan = np.array([np.nan , np.nan, np.nan])
     
     while (abs(Error) > 1e-05):
 
         #         
         #record each axis and cal the pos of now
-        Feedback_Ang=PathAngle
+        Feedback_Ang=Path.Angle
         Info=FK(DOF,Feedback_Ang,Link)
-        DrawRobotManipulator(DOF,Info.JointPos,Info.JointDir,1,np.array([- 145,30]))
-        title('RRR Manipulator')
+        DrawArm(DOF,Info.Pos,Info.JointDir)
+        #DrawRobotManipulator(DOF,Info.JointPos,Info.JointDir,1,np.array([- 145,30]))
+        # title('RRR Manipulator')
         Vel=CalculateMovementDistance(Vel,Error)
-        PathPos = PathPos + np.dot(Vector,VelDis)
-        PathAngle = IK(PathPos,Link)
-        Ang_V=np.dot((PathAngle - Feedback_Ang),pi) / 180 / VelTick
-        RPM=np.dot(60,Ang_V) / (np.dot(2,pi))
-        Error=np.linalg.norm(GoalPos - PathPos)
-        pause(VelTick)
-        MotorACC=(np.multiply(Ang_V,ParameterGear) - Past_RPM) / VelTick
+        Path.Pos = Path.Pos + Vector*Vel.Dis
+        Path.Angle = IK(Path.Pos,Link)
+        # print(Path.Angle) 
+        # print(Path.Angle-Feedback_Ang)
+        
+        Ang_V=(Path.Angle - Feedback_Ang)* pi/ 180 / Vel.Tick
+        Ang_V = np.where(Ang_V==nan, 0, Ang_V) 
+    
+
+        RPM=60*Ang_V / 2*pi
+        Error=np.linalg.norm(Goal.Pos - Path.Pos)
+        # pause(Vel.Tick)
+        MotorACC=(np.multiply(Ang_V,ParameterGear) - Past_RPM) / Vel.Tick
+        # print(MotorACC)
         Past_RPM=np.multiply(Ang_V,ParameterGear)
-        Rec_P=np.array([Rec_P,Info.Pos])
-        Rec_V=np.array([Rec_V,VelNow])
-        Rec_Ang=np.array([Rec_Ang,PathAngleT])
-        Rec_RPM=np.array([Rec_RPM,RPM.T])
-        Rec_Acc=np.array([Rec_Acc,MotorACC.T])
+        # print(Info.Pos)
+        Rec_P=np.concatenate([Rec_P,Info.Pos],axis=1)
+        Rec_V=np.vstack((Rec_V,Vel.Now))
+        print(Rec_V)
+        # pdb.set_trace()
+        # print(Rec_Ang)
+        # print(Path.Angle.reshape(3,1))
+        Rec_Ang=np.array([Rec_Ang,Path.Angle.reshape(3,1)])
+        Rec_RPM=np.concatenate([Rec_RPM,RPM.reshape(3,1)],axis = 1)
+        Rec_Acc=np.concatenate([Rec_Acc,MotorACC.reshape(3,1)],axis = 1)
 
     
     
     # record2
-    Rec_P=np.array([Rec_P,PathPosT])
-    Rec_Ang=np.array([Rec_Ang,PathAngleT])
-    Rec_V=np.array([Rec_V,0])
-    Rec_RPM=np.array([Rec_RPM,zeros(3,1)])
-    Rec_Acc=np.array([Rec_Acc,zeros(3,1)])
+    # print(Rec_RPM)
+    Rec_P=np.concatenate([Rec_P,Path.Pos.reshape(3,1)],axis = 1)
+    Rec_Ang=np.array([Rec_Ang,Path.Angle.T])
+    Rec_V=np.vstack([Rec_V,0])
+    Rec_RPM=np.concatenate([Rec_RPM,np.zeros(3,).reshape(3,1)],axis =1)
+    Rec_Acc=np.concatenate([Rec_Acc,np.zeros(3,).reshape(3,1)],axis = 1)
+   
+    # figure(1)
+    fig = plt.figure(figsize=(8,8))
     
-    figure(1)
-    plot3(Rec_P(1,arange()),Rec_P(2,arange()),Rec_P(3,arange()),'bo')
-    t=np.dot((arange(1,size(Rec_V,2))),VelTick)
-    figure(2)
-    plot(t,Rec_V,'-bo')
-    axis(np.array([min(t),max(t),min(Rec_V),max(Rec_V) + 2]))
-    final_pos=Rec_P(arange(),end()).T
+    ax = plt.subplot(211, aspect='equal')
+    ax.set_aspect('equal')
+    
+    p = Vel.Tick
+
+    plt.plot(Rec_P[0,],Rec_P[1,],Rec_P[2,],'bo')
+    for i in range(2,np.size(Rec_V)):
+        print(i*p)
+        Vel.Tick= np.vstack((Vel.Tick,i*p))
+        # print(Vel.Tick)
+    # figure(2)
+    Vel.Tick = np.vstack((Vel.Tick,1.36))
+    plt.plot(Vel.Tick,Rec_V,'-bo')
+    # axis(np.array([min(t),max(t),min(Rec_V),max(Rec_V) + 2]))
+    final_pos=Rec_P.T
     
     #     DrawAngle( t , Rec_Ang );
-    DrawRPM(t,Rec_RPM)
+    # DrawRPM(t,Rec_RPM)
     #     DrawACC( t, Rec_Acc );
-    
     return
 
     
@@ -120,49 +182,50 @@ def CalculateMovementDistance(Vel,Error):
     # varargin = CalculateMovementDistance.varargin
     # nargin = CalculateMovementDistance.nargin
 
-    VelDis = 0
-    if (cmp(VelState,'VEL_IDEL')):
-        VelNow = 0
-        VelState = 'VEL_ACC'
-        VelDis = np.dot(VelNow,VelTick)
+    Vel.Dis = 0
+    if (Vel.State=='VEL_IDEL'):
+        Vel.Now = 0
+        Vel.State = 'VEL_ACC'
+        Vel.Dis = Vel.Now*Vel.Tick
     else:
-        if (cmp(VelState,'VEL_ACC')):
-            tmp=VelNow
-            VelNow = tmp + (np.dot(VelAcc,VelTick))
-            VelDis = np.dot(np.dot((tmp + VelNow),VelTick),0.5)
-            IsDec,Vel=IsDeceleration(Vel,Error,nargout=2)
-            #         IsDec=0;
+        if (Vel.State=='VEL_ACC'):
+            tmp=Vel.Now
+            Vel.Now = tmp + (Vel.Acc*Vel.Tick)
+            Vel.Dis = ((tmp + Vel.Now)*Vel.Tick)*0.5
+            IsDec,Vel=IsDeceleration(Vel,Error) #nargout=2
+            # IsDec=0;
             if (IsDec == 0):
-                if (VelNow >= VelDrv):
-                    VelNow = VelDrv
-                    VelState = 'VEL_KEEP'
-                    VelDis = np.dot(tmp,VelTick) + (np.dot(VelTick,(VelNow - tmp))) / 2
+                if (Vel.Now >= Vel.Drv):
+                    Vel.Now = Vel.Drv
+                    Vel.State = 'VEL_KEEP'
+                    Vel.Dis = tmp*Vel.Tick + (Vel.Tick*(Vel.Now - tmp))/ 2
             else:
-                VelState = 'VEL_DEC'
+                Vel.State = 'VEL_DEC'
             #==
         else:
-            if (cmp(VelState,'VEL_KEEP')):
-                IsDec,Vel=IsDeceleration(Vel,Error,nargout=2)
+            if (Vel.State=='VEL_KEEP'):
+                IsDec,Vel=IsDeceleration(Vel,Error) #nargout=2
                 if (IsDec == 0):
-                    VelNow = VelDrv
-                    VelDis = np.dot(VelNow,VelTick)
+                    Vel.Now = Vel.Drv
+                    Vel.Dis = Vel.Now*Vel.Tick
                 else:
-                    VelState = 'VEL_DEC'
+                    Vel.State = 'VEL_DEC'
             else:
-                if (cmp(VelState,'VEL_DEC')):
-                    VelNow = VelNow - dot(VelAcc,VelTick)
-                    if (VelNow <= VelStart):
-                        VelNow = copy(VelStart)
-                    VelDis = np.dot(VelNow,VelTick) + (np.dot(VelAcc,VelTick ** 2)) / 2.0
+                print(Vel.State)
+                if (Vel.State=='VEL_DEC'):
+                    Vel.Now = Vel.Now - Vel.Acc*Vel.Tick
+                    if (Vel.Now <= Vel.Start):
+                        Vel.Now = Vel.Start
+                    Vel.Dis = Vel.Now*Vel.Tick + (Vel.Acc*Vel.Tick ** 2)/ 2.0
                 else:
                     print('err')
     
-    if (VelDis > abs(Error)):
-        VelDis = abs(Error)
+    if (Vel.Dis > abs(Error)):
+        Vel.Dis = abs(Error)
     
     
     if (Error < 0):
-        VelDis = np.dot(-1.0,VelDis)
+        Vel.Dis = -1.0*Vel.Dis
     
     return Vel
     
@@ -170,28 +233,28 @@ def CalculateMovementDistance(Vel,Error):
     
     ## trapezoid speed curve ###############
     
-def IsDeceleration(Vel=None,Error=None,*args,**kwargs):
+def IsDeceleration(Vel,Error):
     # varargin = IsDeceleration.varargin
     # nargin = IsDeceleration.nargin
 
     # the time which cost in the speed of now to stop
-    t_dec=((VelNow - VelStart) / VelAcc)
+    t_dec=((Vel.Now - Vel.Start) / Vel.Acc)
 
     # according the time cost to cal the distance
-    max_move_dis=np.dot(VelTick,VelNow)
-    d1=(np.dot(t_dec,VelNow)) / 2
+    max_move_dis=np.dot(Vel.Tick,Vel.Now)
+    d1=(t_dec*Vel.Now) / 2
     d2=Error - d1
-    t1=d2 / VelNow
-    t2=VelTick - t1
+    t1=d2 / Vel.Now
+    t2=Vel.Tick - t1
     #     d1d2 = [d1 d2 d1+d2]
     
     
     if (d2 <= max_move_dis):
         t1t2=[t1,t2,t1 + t2]
         d1d2=[d1,d2,d1 + d2]
-        tmp=VelNow
-        VelNow = tmp - dot(VelAcc,t2)
-        VelDis = np.dot(VelNow,VelTick) + np.dot(np.dot(0.5,abs(tmp - VelNow)),VelTick)
+        tmp=Vel.Now
+        Vel.Now = tmp - Vel.Acc*t2
+        Vel.Dis = Vel.Now*Vel.Tick + (0.5*abs(tmp - Vel.Now)*Vel.Tick)
         isDec=1
     else:
         isDec=0
@@ -206,7 +269,7 @@ def FK(DOF,Angle,Link):
     # varargin = FK.varargin
     # nargin = FK.nargin
 
-
+    Info = information()
     Angle=np.dot(Angle,pi) / 180
     
     # (1) decide each joint starting point
@@ -231,24 +294,39 @@ def FK(DOF,Angle,Link):
     #+---+-----------+-----------+-----------+-----------+
     
     # DH Parameter       a  |     alpha |        d  |     theta |
-    DHParameter=np.array([[0,     pi / 2,     Link[0],    pi / 2],[Link[1],0,0,0],[Link[2],0,0,0]])
-    DH = pd.DataFrame(DHParameter)
+    DHParameter=np.array([[0,     pi / 2,     Link[0],    pi / 2],
+                          [Link[1],    0,           0,           0],
+                          [Link[2],    0,           0,           0]])
     # starting setting
     JointPos=np.array([[0],[0],[0]])
     JointDir=np.array([[1,0,0],[0,1,0],[0,0,1]])
     T0_3=np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]])
     
-    for i in np.arange(0,DOF):
-        A=GenerateTransformationMatrices(Angle[i],DH.iloc[i])
-        print(A)
-        T0_3=np.dot(T0_3,A)                                   #??????????????????????????????????????????????????????????
-        JointPos=np.array([JointPos,T0_3(np.arange[1:5:3])])
-        JointDir=np.array([JointDir,T0_3(np.arange[1:4],np.arange[1:4])])
+
+    for i in range(0,DOF):
+        A=GenerateTransformationMatrices(Angle[i],DHParameter[i,:])
+        # print(A)
+        g = np.delete(T0_3,[3],axis = 0)
+        k = g[:,3].reshape(3,1)
+        #t = Info.JointPos
+        JointPos = np.concatenate((JointPos,k),axis = 1)
+        f = np.delete(T0_3,[3],axis = 1)
+        p = np.array([f[0,:],f[1,:],f[2,:]])
+        JointDir = np.concatenate((JointDir,p),axis = 1)
+        # T0_3=np.dot(T0_3,A)                                   
+        # JointPos=np.array([JointPos,T0_3(np.arange[1:5:3])])
+        # JointDir=np.array([JointDir,T0_3(np.arange[1:4],np.arange[1:4])])
     
     
-    Info.Pos = JointPos(np.arange[1:5:3])
+    # Info.Pos = JointPos(np.arange[1:5:3])
+    g = np.delete(T0_3,[3],axis = 0)
+    k = g[:,3].reshape(3,1)
+    f = np.delete(T0_3,[3],axis = 1)
+    p = np.array([f[0,:],f[1,:],f[2,:]])
+    Info.Pos = p
     Info.JointPos = JointPos
     Info.JointDir = JointDir
+    # print(Info.Pos)
     return Info
 
     ## DH homogeneous transfor matrix
@@ -268,7 +346,7 @@ def GenerateTransformationMatrices(Theta,DH_Parameter):
     S_Theta=math.sin(Theta + DH_Parameter[3])
     C_Alpha=math.cos(DH_Parameter[1])
     S_Alpha=math.sin(DH_Parameter[1])
-    A=np.array([[C_Theta,np.dot(np.dot(- 1,S_Theta),C_Alpha),np.dot(S_Theta,S_Alpha),np.dot(DH_Parameter[0],C_Theta),S_Theta,np.dot(C_Theta,C_Alpha),np.dot(np.dot(- 1,C_Theta),S_Alpha),np.dot(DH_Parameter[0],S_Theta),0,S_Alpha,C_Alpha,DH_Parameter[2]],[0,0,0,1]])
+    A=np.array([[C_Theta, - 1*S_Theta*C_Alpha, S_Theta*S_Alpha, DH_Parameter[0]*C_Theta, S_Theta, C_Theta*C_Alpha, - 1*C_Theta*S_Alpha, DH_Parameter[0]*S_Theta, 0, S_Alpha, C_Alpha, DH_Parameter[2]], [0,0,0,1]])
     return A
     
 
@@ -278,9 +356,9 @@ def GenerateTransformationMatrices(Theta,DH_Parameter):
 def IK(Goal,Link):
     # varargin = IK.varargin
     # nargin = IK.nargin
-    Angle = np.array([0,0,0])
+    Angle = np.array([0.00 ,0.00, 0.00], dtype=float)
     #first joint theta1
-    Angle[0]= -math.atan2(Goal[0],Goal[1])
+    Angle[0]= math.atan2(Goal[0],Goal[1])
     
     #third joint theta3
     cosTheta3=((Goal[2] - Link[0]) ** 2 + Goal[0] ** 2 + Goal[1] ** 2 - (Link[1]**2 + Link[2]**2)) / (np.dot(np.dot(2.0,Link[1]),Link[2]))
@@ -293,20 +371,49 @@ def IK(Goal,Link):
     Angle[1]=math.atan2(Goal[2] - Link[0],r) - math.atan2(np.dot(Link[2],math.sin(Theta3)),Link[1] + np.dot(Link[2],math.cos(Theta3)))
     
     Angle=np.dot(Angle,180) / pi
+    print(Angle)
     return Angle
     
 
     ##plot
+def DrawArm(DOF,JointPos,JointDir):
+
+    Info = information()
+    fig = plt.figure(figsize=(8,8))
     
+    ax = plt.subplot(211, aspect='equal')
+    ax.set_aspect('equal')
+    
+    r2d = 1/180*pi
+
+    Od = [0,0,0]
+    pos = [ [None] * 3 for i in range(4) ]
+    ax = plt.subplot(111, projection='3d')
+    
+    x = JointPos[0,:]
+    y = JointPos[1,:]
+    z = JointPos[2,:]
+    #print(x)
+    ax.plot(x,y,z,"o-",color="#00aa00", ms=4, mew=0.5,label='Arm')
+
+    ax.set_zlabel('Z')  # 座標軸
+    ax.set_ylabel('Y')
+    ax.set_xlabel('X')
+    plt.title('3DOF_arm') # 設置標題
+    plt.legend() # 顯示上面定義的圖例
+    plt.show()
+
+# def DrawRobotManipulator(DOF,JointPos,JointDir):
+#     # varargin = DrawRobotMani
 def DrawRobotManipulator(DOF,JointPos,JointDir,FigNum,View):
     # varargin = DrawRobotManipulator.varargin
     # nargin = DrawRobotManipulator.nargin
 
-    figure(FigNum)
+    # figure(FigNum)
     
-    plt(JointPos(1,arange(1,end())),JointPos(2,arange(1,end())),JointPos(3,arange(1,end())),'linewidth',4)
+    plot(JointPos(1,arange(1,end())),JointPos(2,arange(1,end())),JointPos(3,arange(1,end())),'linewidth',4)
     
-    plt(JointPos(1,arange(1,end())),JointPos(2,arange(1,end())),JointPos(3,arange(1,end())),'ro','linewidth',7)
+    plot(JointPos(1,arange(1,end())),JointPos(2,arange(1,end())),JointPos(3,arange(1,end())),'ro','linewidth',7)
     
     xlabel('X axis')
     ylabel('Y axis')
@@ -361,7 +468,7 @@ def DrawRobotManipulator(DOF,JointPos,JointDir,FigNum,View):
     ##
     
 
-def DrawAngle(t=None,Rec_Ang=None,*args,**kwargs):
+def DrawAngle(t,Rec_Ang):
     # varargin = DrawAngle.varargin
     # nargin = DrawAngle.nargin
 
@@ -390,7 +497,7 @@ def DrawAngle(t=None,Rec_Ang=None,*args,**kwargs):
     
     
 
-def DrawRPM(t=None,Rec_RPM=None,*args,**kwargs):
+def DrawRPM(t,Rec_RPM):
     # varargin = DrawRPM.varargin
     # nargin = DrawRPM.nargin
 
